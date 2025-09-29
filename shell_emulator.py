@@ -4,11 +4,21 @@ import os
 import sys
 import shlex
 from typing import List, Tuple
+import getpass
+import platform
+
 
 
 class TerminalEmulator:
-    def __init__(self, root):
+    def __init__(self, root, vfs_path=None, startup_script=None):
         self.root = root
+
+        self.vfs_path = vfs_path or os.getcwd()
+
+        self.startup_script = startup_script
+
+        self.current_dir = self.vfs_path
+
         self.root.title(self.get_window_title())
 
         self.current_dir = os.getcwd()
@@ -31,9 +41,15 @@ class TerminalEmulator:
         self.input_entry.bind('<Up>', self.navigate_history_up)
         self.input_entry.bind('<Down>', self.navigate_history_down)
 
+        self.print_output(f"[DEBUG] VFS Path: {self.vfs_path}\n")
+        self.print_output(f"[DEBUG] Startup Script: {self.startup_script}\n")
+
+        if self.startup_script:
+            self.run_startup_script(self.startup_script)
+
     def get_window_title(self) -> str:
-        username = os.getlogin()
-        hostname = os.uname().nodename if hasattr(os, 'uname') else 'localhost'
+        username = getpass.getuser()
+        hostname = platform.node()
         return f"Эмулятор - [{username}@{hostname}]"
 
     def create_widgets(self):
@@ -182,8 +198,47 @@ class TerminalEmulator:
             self.input_entry.delete(0, tk.END)
         return "break"
 
+    def run_startup_script(self, script_path):
+        if not os.path.isfile(script_path):
+            self.print_output(f"Ошибка: стартовый скрипт '{script_path}' не найден\n")
+            return
+        try:
+            with open(script_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    self.print_output(f"{self.get_prompt()}{line}\n")
+                    try:
+                        self.execute_command_from_script(line)
+                    except Exception as e:
+                        self.print_output(f"[Ошибка в скрипте] {str(e)}\n")
+        except Exception as e:
+            self.print_output(f"Ошибка при чтении скрипта: {str(e)}\n")
+
+    def execute_command_from_script(self, command: str):
+        cmd, args = self.parse_command(command)
+        if cmd == "exit":
+            self.root.quit()
+        elif cmd == "ls":
+            self.cmd_ls(args)
+        elif cmd == "cd":
+            self.cmd_cd(args)
+        elif cmd:
+            self.print_output(f"Команда '{cmd}' не найдена\n")
+
 
 def main():
+    vfs_path = None
+    startup_script = None
+
+    if len(sys.argv) > 1:
+        for arg in sys.argv[1:]:
+            if arg.startswith('--vfs='):
+                vfs_path = arg.split('=', 1)[1]
+            elif arg.startswith('--script='):
+                startup_script = arg.split('=', 1)[1]
+
     root = tk.Tk()
     root.geometry("800x600")
 
@@ -192,13 +247,14 @@ def main():
     except:
         pass
 
-    terminal = TerminalEmulator(root)
+    terminal = TerminalEmulator(root, vfs_path=vfs_path, startup_script=startup_script)
 
     def on_closing():
         root.quit()
 
     root.protocol("WM_DELETE_WINDOW", on_closing)
     root.mainloop()
+
 
 
 if __name__ == "__main__":
