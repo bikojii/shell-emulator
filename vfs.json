@@ -1,0 +1,50 @@
+{
+  "type": "dir",
+  "name": "/",
+  "children": {
+    "file1.txt": {
+      "type": "file",
+      "name": "file1.txt",
+      "content": "SGVsbG8gd29ybGQh"
+    },
+    "docs": {
+      "type": "dir",
+      "name": "docs",
+      "children": {
+        "readme.txt": {
+          "type": "file",
+          "name": "readme.txt",
+          "content": "VGhpcyBpcyBhIHJlYWRtZSBmaWxlLg=="
+        },
+        "images": {
+          "type": "dir",
+          "name": "images",
+          "children": {
+            "logo.png": {
+              "type": "file",
+              "name": "logo.png",
+              "content": "iVBORw0KGgoAAAANSUhEUgAA..." 
+            }
+          }
+        }
+      }
+    },
+    "projects": {
+      "type": "dir",
+      "name": "projects",
+      "children": {
+        "project1": {
+          "type": "dir",
+          "name": "project1",
+          "children": {
+            "main.py": {
+              "type": "file",
+              "name": "main.py",
+              "content": "cHJpbnQoIkhlbGxvIFByb2plY3QhIik=" 
+            }
+          }
+        }
+      }
+    }
+  }
+}

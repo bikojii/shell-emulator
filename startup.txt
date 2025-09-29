@@ -1,5 +1,17 @@
 ls
-cd folder
+cd docs
 ls
-foo
+cd images
+ls
+cd /
+ls
+cd projects
+ls
+cd project1
+ls
+cd ..
+ls
+cd nonexistent
+ls
+foobar
 exit

@@ -6,6 +6,9 @@ import shlex
 from typing import List, Tuple
 import getpass
 import platform
+import json
+import base64
+
 
 
 
@@ -21,13 +24,63 @@ class TerminalEmulator:
 
         self.root.title(self.get_window_title())
 
-        self.current_dir = os.getcwd()
+        self.current_dir = "/"
 
         self.terminal_font = font.Font(family="Courier New", size=10)
 
         self.create_widgets()
 
         self.welcome_message()
+
+        self.vfs = {}
+        if self.vfs_path:
+            self.load_vfs(self.vfs_path)
+        else:
+            # VFS по умолчанию, если файл не указан
+            self.vfs = {
+                "type": "dir",
+                "name": "/",
+                "children": {
+                    "file1.txt": {
+                        "type": "file",
+                        "name": "file1.txt",
+                        "content": "SGVsbG8gd29ybGQh"  # base64
+                    },
+                    "docs": {
+                        "type": "dir",
+                        "name": "docs",
+                        "children": {
+                            "readme.txt": {
+                                "type": "file",
+                                "name": "readme.txt",
+                                "content": "VGhpcyBpcyBhIHJlYWRtZSBmaWxlLg=="
+                            },
+                            "images": {
+                                "type": "dir",
+                                "name": "images",
+                                "children": {}
+                            }
+                        }
+                    },
+                    "projects": {
+                        "type": "dir",
+                        "name": "projects",
+                        "children": {
+                            "project1": {
+                                "type": "dir",
+                                "name": "project1",
+                                "children": {
+                                    "main.py": {
+                                        "type": "file",
+                                        "name": "main.py",
+                                        "content": "cHJpbnQoIkhlbGxvIFByb2plY3QhIik="
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
         self.input_entry.focus_set()
 
@@ -93,14 +146,14 @@ class TerminalEmulator:
     def get_prompt(self) -> str:
         username = os.getlogin()
         hostname = os.uname().nodename if hasattr(os, 'uname') else 'localhost'
-        current_dir = os.path.basename(self.current_dir)
+        current_dir = self.current_dir.strip("/") or "/"
         return f"{username}@{hostname}:{current_dir}$ "
 
     def welcome_message(self):
         welcome_text = """Добро пожаловать в эмулятор терминала!
 Доступные команды:
-  ls [аргументы]    - список файлов (заглушка)
-  cd [директория]   - сменить директорию (заглушка)
+  ls [аргументы]    - список файлов 
+  cd [директория]   - сменить директорию
   exit              - выход из эмулятора
 
 Попробуйте ввести команды с аргументами в кавычках!
@@ -162,20 +215,33 @@ class TerminalEmulator:
         return "break"
 
     def cmd_ls(self, args: List[str]):
-        self.print_output(f"ls вызван с аргументами: {args}\n")
-        self.print_output("file1.txt  file2.txt  directory/\n")
+        target_path = self.current_dir if not args else args[0]
+        node = self.get_node_by_path(target_path)
+        if not node or node["type"] != "dir":
+            self.print_output(f"ls: путь '{target_path}' не найден\n")
+            return
+        items = "  ".join(node["children"].keys())
+        self.print_output(f"{items}\n")
+
 
     def cmd_cd(self, args: List[str]):
-        self.print_output(f"cd вызван с аргументами: {args}\n")
-        if args:
-            new_dir = args[0]
-            if new_dir == "..":
-                self.current_dir = os.path.dirname(self.current_dir) or "/"
-            else:
-                self.current_dir = os.path.join(self.current_dir, new_dir)
+        if not args:
+            self.current_dir = "/"
         else:
-            self.current_dir = os.path.expanduser("~")
+            new_path = args[0]
+            if new_path.startswith("/"):
+                abs_path = new_path
+            elif new_path == "..":
+                abs_path = "/" if self.current_dir == "/" else "/".join(
+                    self.current_dir.rstrip("/").split("/")[:-1]) or "/"
+            else:
+                abs_path = (self.current_dir.rstrip("/") + "/" + new_path).replace("//", "/")
 
+            node = self.get_node_by_path(abs_path)
+            if node and node["type"] == "dir":
+                self.current_dir = abs_path
+            else:
+                self.print_output(f"cd: путь '{new_path}' не найден\n")
         self.update_prompt()
 
     def auto_complete(self, event):
@@ -226,6 +292,49 @@ class TerminalEmulator:
             self.cmd_cd(args)
         elif cmd:
             self.print_output(f"Команда '{cmd}' не найдена\n")
+
+    def load_vfs(self, vfs_path):
+        if not os.path.isfile(vfs_path):
+            self.print_output(f"Ошибка: файл VFS '{vfs_path}' не найден\n")
+            self.vfs = {"type": "dir", "name": "/", "children": {}}
+            return
+        try:
+            with open(vfs_path, "r", encoding="utf-8") as f:
+                self.vfs = json.load(f)
+        except Exception as e:
+            self.print_output(f"Ошибка при загрузке VFS: {str(e)}\n")
+            self.vfs = {"type": "dir", "name": "/", "children": {}}
+
+    def get_node_by_path(self, path: str):
+        path = path.replace("\\", "/")
+
+        if not path.startswith("/"):
+            if self.current_dir == "/":
+                path = "/" + path
+            else:
+                path = self.current_dir.rstrip("/") + "/" + path
+
+        parts = path.strip("/").split("/")
+        node = self.vfs
+        for part in parts:
+            if part == "":
+                continue
+            if node["type"] != "dir" or part not in node["children"]:
+                return None
+            node = node["children"][part]
+        return node
+
+    def read_file_content(self, path: str) -> str:
+        node = self.get_node_by_path(path)
+        if not node or node["type"] != "file":
+            self.print_output(f"Ошибка: файл '{path}' не найден\n")
+            return ""
+        try:
+            content_bytes = base64.b64decode(node["content"])
+            return content_bytes.decode("utf-8")
+        except Exception as e:
+            self.print_output(f"Ошибка чтения файла '{path}': {str(e)}\n")
+            return ""
 
 
 def main():
