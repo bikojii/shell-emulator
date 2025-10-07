@@ -19,13 +19,7 @@
         "images": {
           "type": "dir",
           "name": "images",
-          "children": {
-            "logo.png": {
-              "type": "file",
-              "name": "logo.png",
-              "content": "iVBORw0KGgoAAAANSUhEUgAA..." 
-            }
-          }
+          "children": {}
         }
       }
     },
@@ -40,7 +34,7 @@
             "main.py": {
               "type": "file",
               "name": "main.py",
-              "content": "cHJpbnQoIkhlbGxvIFByb2plY3QhIik=" 
+              "content": "cHJpbnQoIkhlbGxvIFByb2plY3QhIik="
             }
           }
         }

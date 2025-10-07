@@ -1,3 +1,4 @@
+# Проверка базовой навигации
 ls
 cd docs
 ls
@@ -5,13 +6,27 @@ cd images
 ls
 cd /
 ls
+
+# Проверка ошибок
+cd nonexistent
+ls
+foobar
+
+# Проверка файлов и wc/uniq
+cd docs
+ls
+cd ..
+ls
+wc docs/readme.txt
+uniq docs/readme.txt
+
+# Переход в projects и проверка файлов
 cd projects
 ls
 cd project1
 ls
-cd ..
-ls
-cd nonexistent
-ls
-foobar
+wc main.py
+
+# Возврат в корень и завершение
+cd /
 exit

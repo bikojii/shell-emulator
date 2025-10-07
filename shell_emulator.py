@@ -154,6 +154,8 @@ class TerminalEmulator:
 Доступные команды:
   ls [аргументы]    - список файлов 
   cd [директория]   - сменить директорию
+  wc [файл]         - подсчитать строки, слова и символы в файле
+  uniq [файл]       - вывести уникальные строки файла
   exit              - выход из эмулятора
 
 Попробуйте ввести команды с аргументами в кавычках!
@@ -204,6 +206,12 @@ class TerminalEmulator:
             elif cmd == "cd":
                 self.cmd_cd(args)
 
+            elif cmd == "wc":
+                self.cmd_wc(args)
+
+            elif cmd == "uniq":
+                self.cmd_uniq(args)
+
             elif cmd:
                 self.print_output(f"Команда '{cmd}' не найдена\n")
 
@@ -215,10 +223,13 @@ class TerminalEmulator:
         return "break"
 
     def cmd_ls(self, args: List[str]):
-        target_path = self.current_dir if not args else args[0]
+        target_path = self.current_dir if not args or args[0] in [".", "./"] else args[0]
         node = self.get_node_by_path(target_path)
         if not node or node["type"] != "dir":
             self.print_output(f"ls: путь '{target_path}' не найден\n")
+            return
+        if not node["children"]:
+            self.print_output("(пусто)\n")
             return
         items = "  ".join(node["children"].keys())
         self.print_output(f"{items}\n")
@@ -290,6 +301,10 @@ class TerminalEmulator:
             self.cmd_ls(args)
         elif cmd == "cd":
             self.cmd_cd(args)
+        elif cmd == "wc":
+            self.cmd_wc(args)
+        elif cmd == "uniq":
+            self.cmd_uniq(args)
         elif cmd:
             self.print_output(f"Команда '{cmd}' не найдена\n")
 
@@ -335,6 +350,36 @@ class TerminalEmulator:
         except Exception as e:
             self.print_output(f"Ошибка чтения файла '{path}': {str(e)}\n")
             return ""
+
+    def cmd_wc(self, args: List[str]):
+        if not args:
+            self.print_output("wc: укажите путь к файлу\n")
+            return
+        path = args[0]
+        content = self.read_file_content(path)
+        if not content:
+            return
+        lines = content.splitlines()
+        words = content.split()
+        chars = len(content)
+        self.print_output(f"{len(lines)} {len(words)} {chars} {path}\n")
+
+    def cmd_uniq(self, args: List[str]):
+        if not args:
+            self.print_output("uniq: укажите путь к файлу\n")
+            return
+        path = args[0]
+        content = self.read_file_content(path)
+        if not content:
+            return
+        lines = content.splitlines()
+        unique_lines = []
+        for line in lines:
+            if not unique_lines or unique_lines[-1] != line:
+                unique_lines.append(line)
+        for line in unique_lines:
+            self.print_output(line + "\n")
+
 
 
 def main():
