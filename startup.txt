@@ -1,32 +1,41 @@
-# Проверка базовой навигации
+# Тестирование основных команд
 ls
 cd docs
-ls
-cd images
 ls
 cd /
+cd projects/project1
 ls
+cd /
 
-# Проверка ошибок
-cd nonexistent
-ls
-foobar
-
-# Проверка файлов и wc/uniq
-cd docs
-ls
-cd ..
-ls
+# Тестирование wc
+wc file1.txt
 wc docs/readme.txt
+wc projects/project1/main.py
+
+# Тестирование uniq
 uniq docs/readme.txt
 
-# Переход в projects и проверка файлов
-cd projects
-ls
-cd project1
-ls
-wc main.py
+# Тестирование mv - переименование файла
+mv docs/readme.txt docs/readme_new.txt
+ls docs
 
-# Возврат в корень и завершение
-cd /
-exit
+# Тестирование mv - перемещение файла
+mv docs/readme_new.txt projects/
+ls docs
+ls projects
+
+# Тестирование mv - переименование директории
+mv projects projects_renamed
+ls
+
+# Тестирование mv - перемещение директории
+mv projects_renamed docs/
+ls
+ls docs
+
+# Тестирование обработки ошибок
+mv несуществующий_файл целевая_директория
+mv file1.txt docs/readme.txt
+cd несуществующая_директория
+wc несуществующий_файл
+uniq несуществующий_файл

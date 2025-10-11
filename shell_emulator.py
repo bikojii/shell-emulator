@@ -156,6 +156,7 @@ class TerminalEmulator:
   cd [директория]   - сменить директорию
   wc [файл]         - подсчитать строки, слова и символы в файле
   uniq [файл]       - вывести уникальные строки файла
+  mv [источник] [цель] - переместить или переименовать файл/директорию
   exit              - выход из эмулятора
 
 Попробуйте ввести команды с аргументами в кавычках!
@@ -212,6 +213,9 @@ class TerminalEmulator:
             elif cmd == "uniq":
                 self.cmd_uniq(args)
 
+            elif cmd == "mv":
+                self.cmd_mv(args)
+
             elif cmd:
                 self.print_output(f"Команда '{cmd}' не найдена\n")
 
@@ -234,19 +238,42 @@ class TerminalEmulator:
         items = "  ".join(node["children"].keys())
         self.print_output(f"{items}\n")
 
-
     def cmd_cd(self, args: List[str]):
         if not args:
             self.current_dir = "/"
         else:
             new_path = args[0]
+
+            # Обработка абсолютных путей
             if new_path.startswith("/"):
                 abs_path = new_path
+            # Обработка пути ".." (на уровень выше)
             elif new_path == "..":
-                abs_path = "/" if self.current_dir == "/" else "/".join(
-                    self.current_dir.rstrip("/").split("/")[:-1]) or "/"
+                if self.current_dir == "/":
+                    abs_path = "/"
+                else:
+                    parts = self.current_dir.rstrip("/").split("/")
+                    abs_path = "/" + "/".join(parts[:-1]) if len(parts) > 1 else "/"
             else:
-                abs_path = (self.current_dir.rstrip("/") + "/" + new_path).replace("//", "/")
+                # Для всех относительных путей используем единую логику
+                current_parts = [p for p in self.current_dir.rstrip("/").split("/") if p]
+                new_parts = new_path.split("/")
+
+                for part in new_parts:
+                    if part == "..":
+                        if current_parts:
+                            current_parts.pop()
+                    elif part == "." or part == "":
+                        continue
+                    else:
+                        current_parts.append(part)
+
+                abs_path = "/" + "/".join(current_parts) if current_parts else "/"
+
+            # Нормализация
+            abs_path = abs_path.replace("//", "/")
+            if abs_path != "/" and abs_path.endswith("/"):
+                abs_path = abs_path[:-1]
 
             node = self.get_node_by_path(abs_path)
             if node and node["type"] == "dir":
@@ -305,6 +332,8 @@ class TerminalEmulator:
             self.cmd_wc(args)
         elif cmd == "uniq":
             self.cmd_uniq(args)
+        elif cmd == "mv":
+            self.cmd_mv(args)
         elif cmd:
             self.print_output(f"Команда '{cmd}' не найдена\n")
 
@@ -379,6 +408,57 @@ class TerminalEmulator:
                 unique_lines.append(line)
         for line in unique_lines:
             self.print_output(line + "\n")
+
+    def cmd_mv(self, args: List[str]):
+        if len(args) < 2:
+            self.print_output("mv: укажите исходный и целевой пути\n")
+            return
+
+        source_path = args[0]
+        target_path = args[1]
+
+        # Получаем исходный узел
+        source_node = self.get_node_by_path(source_path)
+        if not source_node:
+            self.print_output(f"mv: исходный путь '{source_path}' не найден\n")
+            return
+
+        # Получаем родительскую директорию исходного узла
+        source_dir_path = "/".join(source_path.rstrip("/").split("/")[:-1]) or "/"
+        source_dir = self.get_node_by_path(source_dir_path)
+        source_name = source_path.rstrip("/").split("/")[-1]
+
+        # Получаем целевую директорию
+        target_node = self.get_node_by_path(target_path)
+
+        # Если целевой путь существует и это директория, перемещаем в неё
+        if target_node and target_node["type"] == "dir":
+            target_dir = target_node
+            new_name = source_name
+        else:
+            # Иначе считаем target_path полным путем к новому файлу/директории
+            target_dir_path = "/".join(target_path.rstrip("/").split("/")[:-1]) or "/"
+            target_dir = self.get_node_by_path(target_dir_path)
+            new_name = target_path.rstrip("/").split("/")[-1]
+
+            if not target_dir or target_dir["type"] != "dir":
+                self.print_output(f"mv: целевая директория '{target_dir_path}' не найдена\n")
+                return
+
+        # Проверяем, не существует ли уже элемент с таким именем в целевой директории
+        if new_name in target_dir["children"]:
+            self.print_output(f"mv: '{new_name}' уже существует в целевой директории\n")
+            return
+
+        # Перемещаем узел
+        target_dir["children"][new_name] = source_node
+        del source_dir["children"][source_name]
+
+        # Обновляем имя узла если оно изменилось
+        if source_node["name"] != new_name:
+            source_node["name"] = new_name
+
+        self.print_output(f"Перемещено '{source_path}' -> '{target_path}'\n")
 
 
 
